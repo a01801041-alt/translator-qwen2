@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Translator — NLLB-200</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0c10; --surface: #12151c; --card: #181d27; --border: #252d3d;
+      --accent: #4fffb0; --accent2: #00cfff; --text: #e8edf5; --muted: #6b7a99;
+      --radius: 14px; --mono: 'DM Mono', monospace; --sans: 'Syne', sans-serif;
+    }
+    html, body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--sans); }
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: linear-gradient(rgba(79,255,176,.04) 1px,transparent 1px),
+                        linear-gradient(90deg,rgba(79,255,176,.04) 1px,transparent 1px);
+      background-size: 40px 40px;
+    }
+    .wrapper { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
+
+    /* Header */
+    header { text-align: center; margin-bottom: 48px; animation: fadeDown .6s ease both; }
+    .logo { display: inline-flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; padding: 6px 16px; font-family: var(--mono); font-size: .75rem; color: var(--accent); letter-spacing: .08em; margin-bottom: 20px; }
+    .logo .dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; animation: pulse 2s ease-in-out infinite; }
+    h1 { font-size: clamp(2rem, 6vw, 3.5rem); font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
+    h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .subtitle { margin-top: 10px; color: var(--muted); font-size: .95rem; font-family: var(--mono); }
+
+    /* Status */
+    #status-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 32px; animation: fadeDown .6s .1s ease both; }
+    .status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .status-text { font-family: var(--mono); font-size: .82rem; color: var(--muted); }
+    .status-text.ready { color: var(--accent); }
+    .progress-track { height: 4px; background: var(--border); border-radius: 4px; margin-top: 12px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; width: 0%; transition: width .4s ease; }
+
+    /* Card */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; animation: fadeUp .6s .2s ease both; }
+    .lang-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid var(--border); }
+    .lang-select-wrap { padding: 16px 20px; display: flex; align-items: center; gap: 10px; }
+    .lang-select-wrap label { font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); white-space: nowrap; }
+    select { background: transparent; border: none; outline: none; color: var(--text); font-family: var(--sans); font-size: .95rem; font-weight: 700; cursor: pointer; flex: 1; min-width: 0; }
+    select option { background: #1a1f2e; }
+    .swap-btn { width: 40px; height: 40px; background: var(--surface); border: 1px solid var(--border); border-radius: 50%; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .2s; flex-shrink: 0; }
+    .swap-btn:hover { color: var(--accent); border-color: var(--accent); transform: rotate(180deg); }
+    .panels { display: grid; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 600px) { .panels { grid-template-columns: 1fr; } .panels .panel:first-child { border-bottom: 1px solid var(--border); } }
+    .panel { padding: 20px; }
+    .panel:first-child { border-right: 1px solid var(--border); }
+    textarea { width: 100%; background: transparent; border: none; outline: none; color: var(--text); font-family: var(--mono); font-size: .92rem; line-height: 1.7; resize: none; min-height: 160px; }
+    textarea::placeholder { color: var(--muted); }
+    .char-count { font-family: var(--mono); font-size: .7rem; color: var(--muted); text-align: right; margin-top: 8px; }
+    .output-text { font-family: var(--mono); font-size: .92rem; line-height: 1.7; color: var(--accent); min-height: 160px; white-space: pre-wrap; word-break: break-word; }
+    .output-text.thinking { color: var(--muted); }
+    .output-text.placeholder { color: var(--muted); font-style: italic; }
+    .action-row { border-top: 1px solid var(--border); padding: 16px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .translate-btn { background: var(--accent); color: #000; border: none; border-radius: 8px; padding: 10px 28px; font-family: var(--sans); font-weight: 700; font-size: .9rem; cursor: pointer; transition: all .15s; }
+    .translate-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(79,255,176,.3); }
+    .translate-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; box-shadow: none; }
+    .clear-btn { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 10px 18px; color: var(--muted); font-family: var(--sans); font-size: .85rem; cursor: pointer; transition: all .15s; }
+    .clear-btn:hover { border-color: var(--muted); color: var(--text); }
+    .kbd-hint { font-family: var(--mono); font-size: .7rem; color: var(--muted); margin-left: auto; }
+    kbd { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: .7rem; }
+
+    /* Examples */
+    .examples-section { margin-top: 32px; animation: fadeUp .6s .3s ease both; }
+    .examples-title { font-size: .7rem; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 12px; }
+    .examples-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+    .example-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 100px; padding: 7px 16px; font-family: var(--mono); font-size: .8rem; color: var(--muted); cursor: pointer; transition: all .15s; }
+    .example-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    footer { margin-top: 48px; text-align: center; font-family: var(--mono); font-size: .75rem; color: var(--muted); }
+    footer a { color: var(--accent2); text-decoration: none; }
+
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes pulse    { 0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)} }
+    @keyframes spin     { to{transform:rotate(360deg)} }
+    .spinner { display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo"><span class="dot"></span>META NLLB-200 · IN-BROWSER INFERENCE</div>
+    <h1>Language<br><span>Translator</span></h1>
+    <p class="subtitle">// zero API keys · 200 languages · runs in your browser</p>
+  </header>
+
+  <div id="status-bar">
+    <div class="status-row">
+      <span id="status-text" class="status-text">⏳ Loading Transformers.js…</span>
+      <span id="status-pct" class="status-text" style="font-size:.75rem;min-width:40px;text-align:right"></span>
+    </div>
+    <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="lang-row">
+      <div class="lang-select-wrap">
+        <label>FROM</label>
+        <select id="src-lang">
+          <option value="eng_Latn" selected>English</option>
+          <option value="spa_Latn">Spanish</option>
+          <option value="fra_Latn">French</option>
+          <option value="deu_Latn">German</option>
+          <option value="ita_Latn">Italian</option>
+          <option value="por_Latn">Portuguese</option>
+          <option value="rus_Cyrl">Russian</option>
+          <option value="zho_Hans">Chinese</option>
+          <option value="arb_Arab">Arabic</option>
+          <option value="jpn_Jpan">Japanese</option>
+          <option value="hin_Deva">Hindi</option>
+          <option value="kor_Hang">Korean</option>
+          <option value="nld_Latn">Dutch</option>
+          <option value="pol_Latn">Polish</option>
+          <option value="tur_Latn">Turkish</option>
+          <option value="vie_Latn">Vietnamese</option>
+          <option value="ind_Latn">Indonesian</option>
+          <option value="cat_Latn">Catalan</option>
+        </select>
+      </div>
+      <button class="swap-btn" id="swap-btn" title="Swap languages">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M7 16V4m0 0L3 8m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4"/>
+        </svg>
+      </button>
+      <div class="lang-select-wrap">
+        <label>TO</label>
+        <select id="tgt-lang">
+          <option value="eng_Latn">English</option>
+          <option value="spa_Latn" selected>Spanish</option>
+          <option value="fra_Latn">French</option>
+          <option value="deu_Latn">German</option>
+          <option value="ita_Latn">Italian</option>
+          <option value="por_Latn">Portuguese</option>
+          <option value="rus_Cyrl">Russian</option>
+          <option value="zho_Hans">Chinese</option>
+          <option value="arb_Arab">Arabic</option>
+          <option value="jpn_Jpan">Japanese</option>
+          <option value="hin_Deva">Hindi</option>
+          <option value="kor_Hang">Korean</option>
+          <option value="nld_Latn">Dutch</option>
+          <option value="pol_Latn">Polish</option>
+          <option value="tur_Latn">Turkish</option>
+          <option value="vie_Latn">Vietnamese</option>
+          <option value="ind_Latn">Indonesian</option>
+          <option value="cat_Latn">Catalan</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="panels">
+      <div class="panel">
+        <textarea id="input-text" placeholder="Type anything to translate…" maxlength="500" rows="6"></textarea>
+        <div class="char-count"><span id="char-count">0</span>/500</div>
+      </div>
+      <div class="panel">
+        <div id="output-text" class="output-text placeholder">Translation will appear here…</div>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="translate-btn" id="translate-btn" disabled>Translate</button>
+      <button class="clear-btn" id="clear-btn">Clear</button>
+      <span class="kbd-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd></span>
+    </div>
+  </div>
+
+  <div class="examples-section">
+    <p class="examples-title">// Required examples (EN → ES)</p>
+    <div class="examples-grid">
+      <button class="example-chip" data-text="I like soccer"    data-src="eng_Latn" data-tgt="spa_Latn">I like soccer</button>
+      <button class="example-chip" data-text="How are you?"     data-src="eng_Latn" data-tgt="spa_Latn">How are you?</button>
+      <button class="example-chip" data-text="What time is it?" data-src="eng_Latn" data-tgt="spa_Latn">What time is it?</button>
+      <button class="example-chip" data-text="The weather is beautiful today" data-src="eng_Latn" data-tgt="fra_Latn">→ French</button>
+      <button class="example-chip" data-text="Where is the nearest hospital?" data-src="eng_Latn" data-tgt="deu_Latn">→ German</button>
+      <button class="example-chip" data-text="I would like a coffee, please" data-src="eng_Latn" data-tgt="ita_Latn">→ Italian</button>
+    </div>
+  </div>
+
+  <footer>
+    model: <a href="https://huggingface.co/Xenova/nllb-200-distilled-600M" target="_blank">Xenova/nllb-200-distilled-600M</a>
+    &nbsp;·&nbsp; by <a href="https://ai.facebook.com/research/no-language-left-behind/" target="_blank">Meta AI</a>
+    &nbsp;·&nbsp; no API keys
+  </footer>
+</div>
+
+<script>
+(async () => {
+  const CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0/+esm';
+  const MODEL = 'Xenova/nllb-200-distilled-600M';
+
+  const $ = id => document.getElementById(id);
+  const statusText   = $('status-text');
+  const statusPct    = $('status-pct');
+  const progressFill = $('progress-fill');
+  const translateBtn = $('translate-btn');
+  const clearBtn     = $('clear-btn');
+  const swapBtn      = $('swap-btn');
+  const inputEl      = $('input-text');
+  const outputEl     = $('output-text');
+  const charCount    = $('char-count');
+  const srcLang      = $('src-lang');
+  const tgtLang      = $('tgt-lang');
+
+  function setStatus(msg, ready) {
+    statusText.textContent = msg;
+    statusText.className = 'status-text' + (ready ? ' ready' : '');
+  }
+  function showOutput(text, ok) {
+    outputEl.className = 'output-text' + (ok ? '' : ' placeholder');
+    outputEl.textContent = text;
+  }
+
+  // ── Load library ──────────────────────────────────────────────────────
+  setStatus('⏳ Loading Transformers.js from CDN…', false);
+  let pipeline, env;
+  try {
+    ({ pipeline, env } = await import(CDN));
+  } catch (e) {
+    setStatus('❌ No internet connection or CDN blocked. Connect and refresh.', false);
+    console.error(e); return;
+  }
+  env.allowRemoteModels = true;
+
+  // ── Progress callback ─────────────────────────────────────────────────
+  function onProgress(p) {
+    if (p.status === 'progress' && p.total) {
+      const pct = Math.round(p.loaded / p.total * 100);
+      progressFill.style.width = pct + '%';
+      statusPct.textContent = pct + '%';
+      setStatus('⏬ Downloading model — ' + pct + '%  (only once, then cached)', false);
+    } else if (p.status === 'initiate') {
+      setStatus('⏬ Starting download… (~300 MB, cached after first time)', false);
+    } else if (p.status === 'done') {
+      setStatus('🔧 Initializing model…', false);
+    }
+  }
+
+  // ── Load NLLB model (single model for ALL language pairs) ─────────────
+  setStatus('⏳ Loading NLLB-200 model (~300 MB first time, then cached)…', false);
+  let translator;
+  try {
+    translator = await pipeline('translation', MODEL, {
+      progress_callback: onProgress,
+    });
+  } catch (e) {
+    setStatus('❌ Model failed to load: ' + e.message, false);
+    console.error(e); return;
+  }
+
+  setStatus('✅ Ready — translate anything!', true);
+  progressFill.style.width = '100%';
+  statusPct.textContent = '';
+  translateBtn.disabled = false;
+
+  // ── Translate ─────────────────────────────────────────────────────────
+  async function doTranslate() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    const src = srcLang.value;
+    const tgt = tgtLang.value;
+    if (src === tgt) { showOutput('⚠️ Source and target must be different.', false); return; }
+
+    translateBtn.disabled = true;
+    outputEl.className = 'output-text thinking';
+    outputEl.innerHTML = '<span class="spinner"></span> Translating…';
+
+    try {
+      const result = await translator(text, {
+        src_lang: src,
+        tgt_lang: tgt,
+        max_length: 512,
+      });
+
+      const translation = result[0]?.translation_text?.trim() || '';
+      showOutput(translation || '❌ Empty result — try again.', !!translation);
+      setStatus('✅ Done!', true);
+    } catch (e) {
+      console.error(e);
+      showOutput('❌ Error: ' + e.message, false);
+      setStatus('❌ Something went wrong.', false);
+    }
+
+    translateBtn.disabled = false;
+  }
+
+  // ── Events ────────────────────────────────────────────────────────────
+  inputEl.addEventListener('input', () => { charCount.textContent = inputEl.value.length; });
+
+  translateBtn.addEventListener('click', doTranslate);
+
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !translateBtn.disabled) doTranslate();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    inputEl.value = ''; charCount.textContent = '0';
+    outputEl.className = 'output-text placeholder';
+    outputEl.textContent = 'Translation will appear here…';
+  });
+
+  swapBtn.addEventListener('click', () => {
+    const tmp = srcLang.value; srcLang.value = tgtLang.value; tgtLang.value = tmp;
+    const prev = outputEl.textContent;
+    if (prev && !outputEl.classList.contains('placeholder')) {
+      inputEl.value = prev; charCount.textContent = prev.length;
+      outputEl.className = 'output-text placeholder';
+      outputEl.textContent = 'Translation will appear here…';
+    }
+  });
+
+  document.querySelectorAll('.example-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      inputEl.value = chip.dataset.text;
+      srcLang.value = chip.dataset.src;
+      tgtLang.value = chip.dataset.tgt;
+      charCount.textContent = inputEl.value.length;
+      if (!translateBtn.disabled) doTranslate();
+    });
+  });
+})();
+</script>
+</body>
+</html>
