@@ -1,5 +1,7 @@
 # 🌐 Translator App — Qwen2-0.5B
 
+![Language Translator](docs/screenshot.png)
+
 A lightweight, **100% local** translation app powered by [Qwen2-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2-0.5B-Instruct).  
 No API keys, no cloud calls — everything runs on your machine.
 
@@ -49,8 +51,6 @@ python app.py
 ```
 
 Then open **http://localhost:7860** in your browser.
-
-![UI screenshot placeholder](docs/screenshot.png)
 
 ---
 
